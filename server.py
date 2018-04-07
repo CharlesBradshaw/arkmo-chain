@@ -43,5 +43,6 @@ def block_request_revoke():
     except Exception:
         return 'Block Already Finalized', 401
 
+
 if __name__ == "__main__":
     app.run()
