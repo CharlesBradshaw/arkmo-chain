@@ -2,6 +2,9 @@ import hashlib as hasher
 import json
 from datetime import datetime
 
+import arky.rest
+from Crypto.PublicKey import RSA
+
 
 class Block:
     def __init__(self, data, previous_hash):
@@ -25,6 +28,7 @@ class Blockchain:
         self.hash_dict = {}
         self.address_dict = {}
         self.create_genesis_block()
+        arky.rest.use("dark")
 
     def create_genesis_block(self):
         data = {}
@@ -60,7 +64,7 @@ class Blockchain:
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
-        if self.validate_sig(self.address_dict[from_address], sig):
+        if self.validate_sig(self.address_dict[from_address], sig, str(from_address) + str(to_address) + str(amount)):
             new_block = self.create_generic_block(data)
             self.unaccepted_payments.add(new_block.hash)
             return new_block
@@ -96,7 +100,7 @@ class Blockchain:
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
-        if self.validate_sig(self.address_dict[to_address], sig):
+        if self.validate_sig(self.address_dict[to_address], sig, request_block_hash):
             return self.finalize_request_block(request_block_hash, True)
         else:
             raise BlockchainError('Signature not validated')
@@ -107,7 +111,7 @@ class Blockchain:
         from_address = transaction_block.data['from_address']
 
         if self.has_stored_key(from_address):
-            if self.validate_sig(self.address_dict[from_address], sig):
+            if self.validate_sig(self.address_dict[from_address], sig, request_block_hash):
                 return self.finalize_request_block(request_block_hash, False)
             else:
                 raise BlockchainError('Signature not validated')
@@ -121,10 +125,16 @@ class Blockchain:
             raise BlockchainError('Block does not exist')
 
     def validate_address(self, key, address):
-        return True
+        return address == str(arky.core.crypto.getAddress(key))
 
-    def validate_sig(self, key, sig):
-        return True
+    def validate_sig(self, key, sig, data):
+        sha = hasher.sha256()
+        sha.update(data)
+
+        key = RSA.importKey(key)
+
+        return key.decrypt(sig) == sha.hexdigest
+
 
     def has_stored_key(self, address):
         return address in self.address_dict
