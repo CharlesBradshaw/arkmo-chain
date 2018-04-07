@@ -3,6 +3,8 @@ import json
 from datetime import datetime
 
 import arky.rest
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 
 
@@ -133,8 +135,9 @@ class Blockchain:
 
         key = RSA.importKey(key)
 
-        return key.decrypt(sig) == sha.hexdigest
+        cipher = PKCS1_OAEP.new(key, hashAlgo=SHA256)
 
+        return cipher.decrypt(sig) == sha.hexdigest
 
     def has_stored_key(self, address):
         return address in self.address_dict
