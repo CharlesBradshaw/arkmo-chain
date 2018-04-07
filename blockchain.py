@@ -71,7 +71,7 @@ class Blockchain:
                     self.add_create_block(new_block, from_address, to_address)
                     return new_block
                 else:
-                    raise BlockchainError('Signature is not valid')
+                    raise BlockchainError('Public key is not valid')
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
@@ -117,7 +117,7 @@ class Blockchain:
                     self.store_key(to_address, key)
                     return self.finalize_request_block(request_block_hash, from_address, to_address, True)
                 else:
-                    raise BlockchainError('Signature is not valid')
+                    raise BlockchainError('Public key is not valid')
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
