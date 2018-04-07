@@ -1,33 +1,36 @@
 import hashlib as hasher
-from collections import Set
+import json
 from datetime import datetime
 
 
 class Block:
     def __init__(self, data, previous_hash):
         self.data = data
+        data['timestamp'] = datetime.now()
         self.previous_hash = previous_hash
         self.hash = self.hash_block()
 
     def hash_block(self):
         sha = hasher.sha256()
-        sha.update(str(self.data) + str(self.previous_hash))
+        sha.update(str(json.dumps(self.data)) + str(self.previous_hash))
         return sha.hexdigest()
 
 
 class Blockchain:
 
     def __init__(self):
-        self.unaccepted_payments = Set()
+        self.unaccepted_payments = set()
         self.finalized_payments = {}
-        genesis_block_data = {}
-        genesis_block = self.create_generic_block(genesis_block_data)
-        self.chain = [genesis_block]
+        self.chain = []
+        self.create_genesis_block()
+
+    def create_genesis_block(self):
+        data = {}
+        new_block = Block(data, 0)
+        self.chain.append(new_block)
+        return new_block
 
     def create_generic_block(self, data):
-
-        data['timestamp'] = datetime.now(),
-
         new_block = Block(data, self.chain[-1].hash)
         self.chain.append(new_block)
         return new_block
