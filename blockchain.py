@@ -6,7 +6,7 @@ from datetime import datetime
 class Block:
     def __init__(self, data, previous_hash):
         self.data = data
-        data['timestamp'] = datetime.now()
+        data['timestamp'] = str(datetime.now())
         self.previous_hash = previous_hash
         self.hash = self.hash_block()
 
