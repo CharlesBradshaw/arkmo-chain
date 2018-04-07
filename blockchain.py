@@ -18,7 +18,7 @@ class Blockchain:
 
   def __init__():
     self.unaccepted_payments = Set()
-
+    self.finalized_payments = {}
     genesis_block_data = {}
     genesis_block = create_generic_block(self,genesis_block_data,0)
     self.chain = [genesis_block]
@@ -55,15 +55,18 @@ class Blockchain:
       }
       new_block = create_generic_block(self,request_data)
       self.unaccepted_payments.remove(request_block_hash)
+      self.finalized_payments[request_block_hash] = new_block.hash
       return new_block
     else:
-      raise Exception('all hell')
+      raise Exception('Block Already Finalized', self.finalized_payments[request_block_hash])
 
   def accept_request_block(request_block_hash):
     return self.finalize_request_block(request_block_hash, True)
 
   def revoke_request_block(request_block_hash):
     return self.finalize_request_block(request_block_hash, False)
+
+  def get_block(request)
 
 
 
