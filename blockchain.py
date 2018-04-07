@@ -44,46 +44,47 @@ class Blockchain:
         self.block_hash_dict[new_block.hash] = new_block
         return new_block
 
-    def add_create_block(self, block, from_address, to_address):
+    def add_create_block(self, block, source_address, target_address):
         self.unaccepted_payments.add(block.hash)
-        if from_address in self.address_transactions_dict:
-            self.address_transactions_dict[from_address].append(block.hash)
+        if source_address in self.address_transactions_dict:
+            self.address_transactions_dict[source_address].append(block.hash)
         else:
-            self.address_transactions_dict[from_address] = [block.hash]
-        if to_address in self.address_transactions_dict:
-            self.address_transactions_dict[to_address].append(block.hash)
+            self.address_transactions_dict[source_address] = [block.hash]
+        if target_address in self.address_transactions_dict:
+            self.address_transactions_dict[target_address].append(block.hash)
         else:
-            self.address_transactions_dict[to_address] = [block.hash]
+            self.address_transactions_dict[target_address] = [block.hash]
 
-    def create_request_block(self, from_address, to_address, amount, sig, key):
+    def create_request_block(self, source_address, target_address, amount, dir, sig, key):
 
         data = {
-            'from_address': from_address,
-            'to_address': to_address,
+            'source_address': source_address,
+            'target_address': target_address,
             'amount': amount,
+            'direction': dir
         }
 
-        if not self.has_stored_key(from_address):
+        if not self.has_stored_key(source_address):
             if key is not None:
-                if self.validate_address(key, from_address):
-                    self.store_key(from_address, key)
+                if self.validate_address(key, source_address):
+                    self.store_key(source_address, key)
                     new_block = self.create_generic_block(data)
-                    self.add_create_block(new_block, from_address, to_address)
+                    self.add_create_block(new_block, source_address, target_address)
                     return new_block
                 else:
                     raise BlockchainError('Public key is not valid')
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
-        if self.validate_sig(self.address_public_key_dict[from_address], sig,
-                             str(from_address) + str(to_address) + str(amount)):
+        if self.validate_sig(self.address_public_key_dict[source_address], sig,
+                             str(source_address) + str(target_address) + str(amount)):
             new_block = self.create_generic_block(data)
-            self.add_create_block(new_block, from_address, to_address)
+            self.add_create_block(new_block, source_address, target_address)
             return new_block
         else:
             raise BlockchainError('Signature not validated')
 
-    def finalize_request_block(self, request_block_hash, from_address, to_address, accepted):
+    def finalize_request_block(self, request_block_hash, source_address, target_address, accepted):
         # todo add lock
         if request_block_hash in self.unaccepted_payments:
             request_data = {
@@ -93,14 +94,14 @@ class Blockchain:
             new_block = self.create_generic_block(request_data)
             self.unaccepted_payments.remove(request_block_hash)
             self.finalized_payments[request_block_hash] = new_block.hash
-            if from_address in self.address_transactions_dict:
-                self.address_transactions_dict[from_address].append(new_block.hash)
+            if source_address in self.address_transactions_dict:
+                self.address_transactions_dict[source_address].append(new_block.hash)
             else:
-                self.address_transactions_dict[from_address] = [new_block.hash]
-            if to_address in self.address_transactions_dict:
-                self.address_transactions_dict[to_address].append(new_block.hash)
+                self.address_transactions_dict[source_address] = [new_block.hash]
+            if target_address in self.address_transactions_dict:
+                self.address_transactions_dict[target_address].append(new_block.hash)
             else:
-                self.address_transactions_dict[to_address] = [new_block.hash]
+                self.address_transactions_dict[target_address] = [new_block.hash]
             return new_block
         else:
             raise BlockchainError('Block already finalized', self.finalized_payments[request_block_hash])
@@ -108,35 +109,38 @@ class Blockchain:
     def accept_request_block(self, request_block_hash, sig, key):
 
         transaction_block = self.retrieve_block(request_block_hash)
-        from_address = transaction_block.data['from_address']
-        to_address = transaction_block.data['to_address']
+        source_address = transaction_block.data['source_address']
+        target_address = transaction_block.data['target_address']
 
-        if not self.has_stored_key(to_address):
+        if not self.has_stored_key(target_address):
             if key is not None:
-                if self.validate_address(key, to_address):
-                    self.store_key(to_address, key)
-                    return self.finalize_request_block(request_block_hash, from_address, to_address, True)
+                if self.validate_address(key, target_address):
+                    self.store_key(target_address, key)
+                    return self.finalize_request_block(request_block_hash, source_address, target_address, True)
                 else:
                     raise BlockchainError('Public key is not valid')
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
-        if self.validate_sig(self.address_public_key_dict[to_address], sig, request_block_hash):
-            return self.finalize_request_block(request_block_hash, from_address, to_address, True)
+        if self.validate_sig(self.address_public_key_dict[target_address], sig, request_block_hash):
+            return self.finalize_request_block(request_block_hash, source_address, target_address, True)
         else:
             raise BlockchainError('Signature not validated')
 
     def revoke_request_block(self, request_block_hash, sig):
 
         transaction_block = self.retrieve_block(request_block_hash)
-        from_address = transaction_block.data['from_address']
-        to_address = transaction_block.data['to_address']
+        source_address = transaction_block.data['source_address']
+        target_address = transaction_block.data['target_address']
 
-        if self.has_stored_key(from_address):
-            if self.validate_sig(self.address_public_key_dict[from_address], sig, request_block_hash):
-                return self.finalize_request_block(request_block_hash, from_address, to_address, False)
+        if self.has_stored_key(source_address):
+            if self.validate_sig(self.address_public_key_dict[source_address], sig, request_block_hash):
+                return self.finalize_request_block(request_block_hash, source_address, target_address, False)
             else:
-                raise BlockchainError('Signature not validated')
+                if self.has_stored_key(target_address):
+                    if self.validate_sig(self.address_public_key_dict[target_address], sig, request_block_hash):
+                        return self.finalize_request_block(request_block_hash, source_address, target_address, False)
+
         else:
             raise BlockchainError('Public key not available')
 

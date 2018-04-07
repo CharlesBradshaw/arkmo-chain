@@ -17,8 +17,8 @@ def block_request_create():
     params = json.loads(data)
 
     try:
-        result = block_chain.create_request_block(params['frm'], params['to'], params['amt'], params['sig'],
-                                                  params.get('key', None))
+        result = block_chain.create_request_block(params['source'], params['target'], params['amount'],
+                                                  params['direction'], params['sig'], params.get('key', None))
         return json.dumps({'new_block': result.__dict__})
     except BlockchainError as e:
         return str(e), 403
