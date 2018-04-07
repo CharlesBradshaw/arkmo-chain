@@ -153,8 +153,7 @@ class Blockchain:
             return []
 
     def validate_address(self, key, address):
-        # return address == str(arky.core.crypto.getAddress(key))
-        return True
+        return address == str(arky.core.crypto.getAddress(key))
 
     def validate_sig(self, key, sig, data):
         # sha = hasher.sha256()
