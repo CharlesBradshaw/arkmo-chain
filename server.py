@@ -48,16 +48,23 @@ def block_request_revoke():
         return str(e), 403
 
 
-@app.route("/blockchain/retrieve", methods=['POST'])
+@app.route("/blockchain/retrieve", methods=['GET'])
 def block_retrieve():
-    data = request.data.decode("utf-8")
-    params = json.loads(data)
+    hash_param = request.args.get('hash')
 
     try:
-        result = block_chain.retrieve_block(params['hash'])
+        result = block_chain.retrieve_block(hash_param)
         return json.dumps({'block': result.__dict__})
     except BlockchainError as e:
         return str(e), 404
+
+
+@app.route("/blockchain/transactions", methods=['GET'])
+def block_transactions():
+    address_param = request.args.get('address')
+
+    result = block_chain.retrieve_address_transactions(address_param)
+    return json.dumps({'transactions': result})
 
 
 if __name__ == "__main__":

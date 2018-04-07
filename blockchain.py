@@ -3,9 +3,6 @@ import json
 from datetime import datetime
 
 import arky.rest
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
 
 
 class Block:
@@ -27,8 +24,9 @@ class Blockchain:
         self.unaccepted_payments = set()
         self.finalized_payments = {}
         self.chain = []
-        self.hash_dict = {}
-        self.address_dict = {}
+        self.block_hash_dict = {}
+        self.address_public_key_dict = {}
+        self.address_transactions_dict = {}
         self.create_genesis_block()
         arky.rest.use("dark")
 
@@ -36,15 +34,26 @@ class Blockchain:
         data = {}
         new_block = Block(data, 0)
         self.chain.append(new_block)
-        self.hash_dict[new_block.hash] = new_block
+        self.block_hash_dict[new_block.hash] = new_block
         return new_block
 
     def create_generic_block(self, data):
 
         new_block = Block(data, self.chain[-1].hash)
         self.chain.append(new_block)
-        self.hash_dict[new_block.hash] = new_block
+        self.block_hash_dict[new_block.hash] = new_block
         return new_block
+
+    def add_create_block(self, block, from_address, to_address):
+        self.unaccepted_payments.add(block.hash)
+        if from_address in self.address_transactions_dict:
+            self.address_transactions_dict[from_address].append(block.hash)
+        else:
+            self.address_transactions_dict[from_address] = [block.hash]
+        if to_address in self.address_transactions_dict:
+            self.address_transactions_dict[to_address].append(block.hash)
+        else:
+            self.address_transactions_dict[to_address] = [block.hash]
 
     def create_request_block(self, from_address, to_address, amount, sig, key):
 
@@ -59,21 +68,22 @@ class Blockchain:
                 if self.validate_address(key, from_address):
                     self.store_key(from_address, key)
                     new_block = self.create_generic_block(data)
-                    self.unaccepted_payments.add(new_block.hash)
+                    self.add_create_block(new_block, from_address, to_address)
                     return new_block
                 else:
                     raise BlockchainError('Signature is not valid')
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
-        if self.validate_sig(self.address_dict[from_address], sig, str(from_address) + str(to_address) + str(amount)):
+        if self.validate_sig(self.address_public_key_dict[from_address], sig,
+                             str(from_address) + str(to_address) + str(amount)):
             new_block = self.create_generic_block(data)
-            self.unaccepted_payments.add(new_block.hash)
+            self.add_create_block(new_block, from_address, to_address)
             return new_block
         else:
             raise BlockchainError('Signature not validated')
 
-    def finalize_request_block(self, request_block_hash, accepted):
+    def finalize_request_block(self, request_block_hash, from_address, to_address, accepted):
         # todo add lock
         if request_block_hash in self.unaccepted_payments:
             request_data = {
@@ -83,6 +93,14 @@ class Blockchain:
             new_block = self.create_generic_block(request_data)
             self.unaccepted_payments.remove(request_block_hash)
             self.finalized_payments[request_block_hash] = new_block.hash
+            if from_address in self.address_transactions_dict:
+                self.address_transactions_dict[from_address].append(new_block.hash)
+            else:
+                self.address_transactions_dict[from_address] = [new_block.hash]
+            if to_address in self.address_transactions_dict:
+                self.address_transactions_dict[to_address].append(new_block.hash)
+            else:
+                self.address_transactions_dict[to_address] = [new_block.hash]
             return new_block
         else:
             raise BlockchainError('Block already finalized', self.finalized_payments[request_block_hash])
@@ -90,20 +108,21 @@ class Blockchain:
     def accept_request_block(self, request_block_hash, sig, key):
 
         transaction_block = self.retrieve_block(request_block_hash)
+        from_address = transaction_block.data['from_address']
         to_address = transaction_block.data['to_address']
 
         if not self.has_stored_key(to_address):
             if key is not None:
                 if self.validate_address(key, to_address):
                     self.store_key(to_address, key)
-                    return self.finalize_request_block(request_block_hash, True)
+                    return self.finalize_request_block(request_block_hash, from_address, to_address, True)
                 else:
                     raise BlockchainError('Signature is not valid')
             else:
                 raise BlockchainError('You must provide a public key on your first transaction')
 
-        if self.validate_sig(self.address_dict[to_address], sig, request_block_hash):
-            return self.finalize_request_block(request_block_hash, True)
+        if self.validate_sig(self.address_public_key_dict[to_address], sig, request_block_hash):
+            return self.finalize_request_block(request_block_hash, from_address, to_address, True)
         else:
             raise BlockchainError('Signature not validated')
 
@@ -111,39 +130,48 @@ class Blockchain:
 
         transaction_block = self.retrieve_block(request_block_hash)
         from_address = transaction_block.data['from_address']
+        to_address = transaction_block.data['to_address']
 
         if self.has_stored_key(from_address):
-            if self.validate_sig(self.address_dict[from_address], sig, request_block_hash):
-                return self.finalize_request_block(request_block_hash, False)
+            if self.validate_sig(self.address_public_key_dict[from_address], sig, request_block_hash):
+                return self.finalize_request_block(request_block_hash, from_address, to_address, False)
             else:
                 raise BlockchainError('Signature not validated')
         else:
             raise BlockchainError('Public key not available')
 
     def retrieve_block(self, block_hash):
-        if block_hash in self.hash_dict:
-            return self.hash_dict[block_hash]
+        if block_hash in self.block_hash_dict:
+            return self.block_hash_dict[block_hash]
         else:
             raise BlockchainError('Block does not exist')
 
+    def retrieve_address_transactions(self, address):
+        if address in self.address_transactions_dict:
+            return self.address_transactions_dict[address]
+        else:
+            return []
+
     def validate_address(self, key, address):
-        return address == str(arky.core.crypto.getAddress(key))
+        # return address == str(arky.core.crypto.getAddress(key))
+        return True
 
     def validate_sig(self, key, sig, data):
-        sha = hasher.sha256()
-        sha.update(data)
+        # sha = hasher.sha256()
+        # sha.update(data)
 
-        key = RSA.importKey(key)
+        # key = RSA.importKey(key)
 
-        cipher = PKCS1_OAEP.new(key, hashAlgo=SHA256)
+        # cipher = PKCS1_OAEP.new(key, hashAlgo=SHA256)
 
-        return cipher.decrypt(sig) == sha.hexdigest
+        # return cipher.decrypt(sig) == sha.hexdigest
+        return True
 
     def has_stored_key(self, address):
-        return address in self.address_dict
+        return address in self.address_public_key_dict
 
     def store_key(self, address, key):
-        self.address_dict[address] = key
+        self.address_public_key_dict[address] = key
 
 
 class BlockchainError(Exception):
