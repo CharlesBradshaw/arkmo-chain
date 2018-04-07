@@ -12,7 +12,7 @@ class Block:
 
     def hash_block(self):
         sha = hasher.sha256()
-        sha.update(str(json.dumps(self.data)) + str(self.previous_hash))
+        sha.update((json.dumps(self.data) + str(self.previous_hash)).encode('utf-8'))
         return sha.hexdigest()
 
 
