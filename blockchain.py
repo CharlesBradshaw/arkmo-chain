@@ -48,8 +48,10 @@ class Blockchain:
     def add_create_block(self, block, source_address, target_address):
         self.unaccepted_payments.add(block.hash)
 
-        self.address_transactions_dict[source_address] = {}
-        self.address_transactions_dict[target_address] = {}
+        if source_address not in self.address_transactions_dict:
+            self.address_transactions_dict[source_address] = {}
+        if target_address not in self.address_transactions_dict:
+            self.address_transactions_dict[target_address] = {}
 
         self.address_transactions_dict[source_address][block.hash] = {"block": block.__dict__,
                                                                       'status': 'pending',
