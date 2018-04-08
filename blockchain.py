@@ -26,6 +26,7 @@ class Blockchain:
         self.chain = []
         self.block_hash_dict = {}
         self.address_public_key_dict = {}
+        self.address_username_dict = {}
         self.address_transactions_dict = {}
         self.create_genesis_block()
         arky.rest.use("dark")
@@ -50,10 +51,19 @@ class Blockchain:
         self.address_transactions_dict[source_address] = {}
         self.address_transactions_dict[target_address] = {}
 
-        self.address_transactions_dict[source_address][block.hash] = {"block": block.__dict__, 'status': 'pending'}
-        self.address_transactions_dict[target_address][block.hash] = {"block": block.__dict__, 'status': 'pending'}
+        self.address_transactions_dict[source_address][block.hash] = {"block": block.__dict__,
+                                                                      'status': 'pending',
+                                                                      'source_username': self.get_username(
+                                                                          source_address),
+                                                                      'target_username': self.get_username(
+                                                                          target_address)}
+        self.address_transactions_dict[target_address][block.hash] = {"block": block.__dict__, 'status': 'pending',
+                                                                      'source_username': self.get_username(
+                                                                          source_address),
+                                                                      'target_username': self.get_username(
+                                                                          target_address)}
 
-    def create_request_block(self, source_address, target_address, amount, direction, sig, key):
+    def create_request_block(self, source_address, target_address, amount, direction, sig, key, username):
 
         data = {
             'source_address': source_address,
@@ -62,17 +72,18 @@ class Blockchain:
             'direction': direction
         }
 
-        if not self.has_stored_key(source_address):
-            if key is not None:
+        if not self.has_stored_key(source_address) and not self.has_stored_username(source_address):
+            if key is not None and username is not None:
                 if self.validate_address(key, source_address):
                     self.store_key(source_address, key)
+                    self.store_username(source_address, username)
                     new_block = self.create_generic_block(data)
                     self.add_create_block(new_block, source_address, target_address)
                     return new_block
                 else:
                     raise BlockchainError('Public key is not valid')
             else:
-                raise BlockchainError('You must provide a public key on your first transaction')
+                raise BlockchainError('You must provide a public key and username on your first transaction')
 
         if self.validate_sig(self.address_public_key_dict[source_address], sig,
                              str(source_address) + str(target_address) + str(amount)):
@@ -107,21 +118,22 @@ class Blockchain:
         else:
             raise BlockchainError('Block already finalized', self.finalized_payments[request_block_hash])
 
-    def accept_request_block(self, request_block_hash, sig, key):
+    def accept_request_block(self, request_block_hash, sig, key, username):
 
         transaction_block = self.retrieve_block(request_block_hash)
         source_address = transaction_block.data['source_address']
         target_address = transaction_block.data['target_address']
 
-        if not self.has_stored_key(target_address):
-            if key is not None:
+        if not self.has_stored_key(target_address) and not self.has_stored_username(target_address):
+            if key is not None and username is not None:
                 if self.validate_address(key, target_address):
                     self.store_key(target_address, key)
+                    self.store_username(target_address, username)
                     return self.finalize_request_block(request_block_hash, source_address, target_address, True)
                 else:
                     raise BlockchainError('Public key is not valid')
             else:
-                raise BlockchainError('You must provide a public key on your first transaction')
+                raise BlockchainError('You must provide a public key and username on your first transaction')
 
         if self.validate_sig(self.address_public_key_dict[target_address], sig, request_block_hash):
             return self.finalize_request_block(request_block_hash, source_address, target_address, True)
@@ -174,8 +186,20 @@ class Blockchain:
     def has_stored_key(self, address):
         return address in self.address_public_key_dict
 
+    def has_stored_username(self, address):
+        return address in self.address_username_dict
+
     def store_key(self, address, key):
         self.address_public_key_dict[address] = key
+
+    def store_username(self, address, username):
+        self.address_username_dict[address] = username
+
+    def get_username(self, address):
+        if self.has_stored_username(address):
+            return self.address_username_dict[address]
+        else:
+            return 'Unknown'
 
 
 class BlockchainError(Exception):

@@ -18,7 +18,8 @@ def block_request_create():
 
     try:
         result = block_chain.create_request_block(params['source'], params['target'], params['amount'],
-                                                  params['direction'], params['sig'], params.get('key', None))
+                                                  params['direction'], params['sig'], params.get('key', None),
+                                                  params.get('username', None))
         return json.dumps({'new_block': result.__dict__})
     except BlockchainError as e:
         return str(e), 403
@@ -30,7 +31,8 @@ def block_request_accept():
     params = json.loads(data)
 
     try:
-        result = block_chain.accept_request_block(params['hash'], params['sig'], params.get('key', None))
+        result = block_chain.accept_request_block(params['hash'], params['sig'], params.get('key', None),
+                                                  params.get('username', None))
         return json.dumps({'new_block': result.__dict__})
     except BlockchainError as e:
         return str(e), 403
