@@ -1,6 +1,7 @@
 import hashlib as hasher
 import json
 from datetime import datetime
+from random import randint
 
 import arky.rest
 
@@ -202,6 +203,17 @@ class Blockchain:
             return self.address_username_dict[address]
         else:
             return 'Unknown'
+
+    def get_users(self):
+        return list(self.address_username_dict.values())
+
+    def create_username(self, name):
+        uid = randint(1000, 9999)
+        username = name + str(uid)
+        while username in self.get_users():
+            uid = randint(1000, 9999)
+            username = name + str(uid)
+        return username
 
 
 class BlockchainError(Exception):

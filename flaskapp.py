@@ -69,6 +69,20 @@ def block_transactions():
     return json.dumps({'transactions': result})
 
 
+@app.route("/blockchain/users", methods=['GET'])
+def block_users():
+    return json.dumps({'users': block_chain.get_users()})
+
+
+@app.route("/blockchain/user/create", methods=['POST'])
+def block_user_create():
+    data = request.data.decode("utf-8")
+    params = json.loads(data)
+
+    result = block_chain.create_username(params['name'])
+    return json.dumps({'username': result})
+
+
 @app.route("/blockchain/dev", methods=['GET'])
 def dev():
     return '{"transactions": {"9bfe2c0573390e7f8484e65155a24ba2de5e8984a9743e72e6417a63788a639f": {"block": {"data": ' \
@@ -92,4 +106,5 @@ def dev():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80, threaded=True)
+    app.run()
+    # app.run(host="0.0.0.0", port=80, threaded=True)
