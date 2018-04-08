@@ -46,22 +46,20 @@ class Blockchain:
 
     def add_create_block(self, block, source_address, target_address):
         self.unaccepted_payments.add(block.hash)
-        if source_address in self.address_transactions_dict:
-            self.address_transactions_dict[source_address].append(block.hash)
-        else:
-            self.address_transactions_dict[source_address] = [block.hash]
-        if target_address in self.address_transactions_dict:
-            self.address_transactions_dict[target_address].append(block.hash)
-        else:
-            self.address_transactions_dict[target_address] = [block.hash]
 
-    def create_request_block(self, source_address, target_address, amount, dir, sig, key):
+        self.address_transactions_dict[source_address] = {}
+        self.address_transactions_dict[target_address] = {}
+
+        self.address_transactions_dict[source_address][block.hash] = {"block": block.__dict__, 'status': 'pending'}
+        self.address_transactions_dict[target_address][block.hash] = {"block": block.__dict__, 'status': 'pending'}
+
+    def create_request_block(self, source_address, target_address, amount, direction, sig, key):
 
         data = {
             'source_address': source_address,
             'target_address': target_address,
             'amount': amount,
-            'direction': dir
+            'direction': direction
         }
 
         if not self.has_stored_key(source_address):
@@ -94,14 +92,17 @@ class Blockchain:
             new_block = self.create_generic_block(request_data)
             self.unaccepted_payments.remove(request_block_hash)
             self.finalized_payments[request_block_hash] = new_block.hash
-            if source_address in self.address_transactions_dict:
-                self.address_transactions_dict[source_address].append(new_block.hash)
-            else:
-                self.address_transactions_dict[source_address] = [new_block.hash]
-            if target_address in self.address_transactions_dict:
-                self.address_transactions_dict[target_address].append(new_block.hash)
-            else:
-                self.address_transactions_dict[target_address] = [new_block.hash]
+
+            status = 'rejected'
+
+            if accepted:
+                status = 'accepted'
+
+            source_dict = self.address_transactions_dict[source_address][request_block_hash]
+            source_dict['status'] = status
+            target_dict = self.address_transactions_dict[target_address][request_block_hash]
+            target_dict['status'] = status
+
             return new_block
         else:
             raise BlockchainError('Block already finalized', self.finalized_payments[request_block_hash])
@@ -154,7 +155,7 @@ class Blockchain:
         if address in self.address_transactions_dict:
             return self.address_transactions_dict[address]
         else:
-            return []
+            return {}
 
     def validate_address(self, key, address):
         return address == str(arky.core.crypto.getAddress(key))
