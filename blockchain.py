@@ -205,7 +205,8 @@ class Blockchain:
             return 'Unknown'
 
     def get_users(self):
-        return list(self.address_username_dict.values())
+        map = self.address_username_dict
+        return dict(zip(map.values(), map.keys()))
 
     def create_username(self, name):
         uid = randint(1000, 9999)
