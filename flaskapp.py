@@ -44,7 +44,8 @@ def block_request_revoke():
     params = json.loads(data)
 
     try:
-        result = block_chain.revoke_request_block(params['hash'], params['sig'])
+        result = block_chain.accept_request_block(params['hash'], params['sig'], params.get('key', None),
+                                                  params.get('username', None))
         return json.dumps({'new_block': result.__dict__})
     except BlockchainError as e:
         return str(e), 403

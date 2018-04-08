@@ -143,22 +143,27 @@ class Blockchain:
         else:
             raise BlockchainError('Signature not validated')
 
-    def revoke_request_block(self, request_block_hash, sig):
+    def revoke_request_block(self, request_block_hash, sig, key, username):
 
         transaction_block = self.retrieve_block(request_block_hash)
         source_address = transaction_block.data['source_address']
         target_address = transaction_block.data['target_address']
 
-        if self.has_stored_key(source_address):
-            if self.validate_sig(self.address_public_key_dict[source_address], sig, request_block_hash):
-                return self.finalize_request_block(request_block_hash, source_address, target_address, False)
+        if not self.has_stored_key(target_address) and not self.has_stored_username(target_address):
+            if key is not None and username is not None:
+                if self.validate_address(key, target_address):
+                    self.store_key(target_address, key)
+                    self.store_username(target_address, username)
+                    return self.finalize_request_block(request_block_hash, source_address, target_address, False)
+                else:
+                    raise BlockchainError('Public key is not valid')
             else:
-                if self.has_stored_key(target_address):
-                    if self.validate_sig(self.address_public_key_dict[target_address], sig, request_block_hash):
-                        return self.finalize_request_block(request_block_hash, source_address, target_address, False)
+                raise BlockchainError('You must provide a public key and username on your first transaction')
 
+        if self.validate_sig(self.address_public_key_dict[target_address], sig, request_block_hash):
+            return self.finalize_request_block(request_block_hash, source_address, target_address, False)
         else:
-            raise BlockchainError('Public key not available')
+            raise BlockchainError('Signature not validated')
 
     def retrieve_block(self, block_hash):
         if block_hash in self.block_hash_dict:
